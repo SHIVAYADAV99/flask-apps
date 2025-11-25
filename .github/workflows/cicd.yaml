@@ -1,20 +1,31 @@
-name: CI/CD Pipeline for Flask App
+name: Build Images & Update Manifests (GitOps -> ArgoCD)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+
+env:
+  IMAGE_NAME: flask-app
+  IMAGE_PREFIX: ${{ secrets.IMAGE_PREFIX }} # set to your DockerHub username in secrets (optional)
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
-    env:
-      IMAGE_NAME: flask-app
-      REGISTRY: ${{ secrets.DOCKERHUB_USERNAME }}
-
+    outputs:
+      image_tag: ${{ steps.set-tag.outputs.IMAGE_TAG }}
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set IMAGE_TAG
+        id: set-tag
+        run: |
+          echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -25,35 +36,45 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push Docker Image
+      - name: Build & push image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/flask-app:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/flask-app:${{ github.sha }}
+            ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Setup Kubectl
-        uses: azure/setup-kubectl@v3
+  update-manifests:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (with push)
+        uses: actions/checkout@v4
         with:
-          version: "v1.29.0"
+          fetch-depth: 0
+          persist-credentials: true  # use GITHUB_TOKEN to push commits
 
-      - name: Configure kubeconfig
+      - name: Set variables
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > $HOME/.kube/config
+          echo "IMAGE=${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> env.sh
+          echo "IMAGE_SHA=${{ github.sha }}" >> env.sh
+          cat env.sh
+        shell: bash
 
-      - name: Update Deployment Image
+      - name: Update k8s manifest image references
         run: |
-          kubectl set image deployment/flask-app \
-          flask-container=${{ secrets.DOCKERHUB_USERNAME }}/flask-app:${{ github.sha }} \
-          -n default
+          # Edit the path to your deployment manifests as needed
+          # This sed command replaces the image line for container 'flask-container' in k8s/deployment.yaml
+          sed -i "s|image: .*flask-app.*|image: ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g" k8s/deployment.yaml
+          git add k8s/deployment.yaml
+          git commit -m "ci: update image to ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" || echo "no changes to commit"
 
-      - name: Apply Kubernetes Manifests
+      - name: Push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          kubectl apply -f deployment.yaml
-          kubectl apply -f service.yaml
+          git push origin HEAD:main
 
-      - name: Verify Deployment
-        run: kubectl rollout status deployment/flask-app
+      - name: Annotate build (optional)
+        run: echo "manifest updated with image ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
