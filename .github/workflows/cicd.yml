@@ -64,7 +64,7 @@ jobs:
           echo "Updating deployment image to: $NEW_IMAGE"
 
           # Path to your deployment.yaml
-          DEPLOYMENT_FILE="flask-app/k8s/deployment.yaml"
+          DEPLOYMENT_FILE="mainfests/deployment.yaml"
 
           # Replace image line
           sed -i "s|image: .*|image: $NEW_IMAGE|g" $DEPLOYMENT_FILE
