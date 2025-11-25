@@ -8,15 +8,16 @@ env:
   IMAGE_NAME: flask-app
 
 jobs:
-
   build-and-push:
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.set-tag.outputs.IMAGE_TAG }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set IMAGE_TAG
         id: set-tag
@@ -34,37 +35,41 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & Push Docker Image
+      - name: Build & Push Image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:latest
 
   update-manifests:
     needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo (with push rights)
+      - name: Checkout repo (with push access)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Update Kubernetes deployment YAML with new image tag
+      - name: Update deployment.yaml image reference
         run: |
-          NEW_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          
+          NEW_IMAGE="${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           echo "Updating image to: $NEW_IMAGE"
 
-          # CHANGE PATH if your file is elsewhere
-          sed -i "s|image:.*${{ env.IMAGE_NAME }}.*|image: $NEW_IMAGE|g" k8s/deployment.yaml
+          # Correct path based on your repo structure
+          sed -i "s|image:.*flask-app.*|image: $NEW_IMAGE|g" mainfests/deployment.yaml
 
-          git add k8s/deployment.yaml
-          git commit -m "ci: update image to $NEW_IMAGE" || echo "No changes"
+          git add mainfests/deployment.yaml
+          git commit -m "ci: update image to $NEW_IMAGE" || echo "No changes to commit"
 
-      - name: Push changes back to repo
+      - name: Push changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: git push origin HEAD:main
+
+      - name: Annotate build
+        run: echo "Manifest updated with ${{ secrets.IMAGE_PREFIX }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
