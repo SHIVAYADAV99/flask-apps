@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for PR creation
 
       - name: Set Image Tag
         id: set-tag
@@ -57,29 +59,28 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Configure Git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Update Manifest Image
+      - name: Update Deployment Manifest Image
         run: |
           NEW_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}"
           echo "Updating image to: $NEW_IMAGE"
 
-          # make sure directory name is correct
+          # Update the deployment manifest
           sed -i "s|image:.*|image: $NEW_IMAGE|g" mainfests/deployment.yaml
-
-          git checkout -b update-image-${{ github.run_id }}
-          git add mainfests/deployment.yaml
-          git commit -m "Update image to $NEW_IMAGE"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: update-image-${{ github.run_id }}
-          base: main
+          branch: update-image-${{ github.run_id }}  # PR branch
+          base: main                                # target branch
           title: "Update image to latest build"
-          body: "This PR updates the Kubernetes manifest to use the latest image."
+          body: "This PR updates the Kubernetes manifest to use the latest Docker image."
           labels: automated
+          commit-message: "[create-pull-request] automated change"
+          upsert: true  # Ensures PR is created if branch doesn't exist or updated if it does
