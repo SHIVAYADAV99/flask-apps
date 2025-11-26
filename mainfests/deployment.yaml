@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: flask-container
-          image: shivayadav99/flask-app
+          image: shivayadav99/flask-app:db4eb7489767599d8aae410ec531a66473721a2b
           ports:
             - containerPort: 8000
