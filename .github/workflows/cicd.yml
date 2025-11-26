@@ -69,7 +69,7 @@ jobs:
           echo "Updating image to: $NEW_IMAGE"
 
           # make sure directory name is correct (manifests)
-          sed -i "s|image:.*|image: $NEW_IMAGE|g" manifests/deployment.yaml
+          sed -i "s|image:.*|image: $NEW_IMAGE|g" mainfests/deployment.yaml
 
           git checkout -b update-image-${{ github.run_id }}
           git add manifests/deployment.yaml
@@ -82,3 +82,4 @@ jobs:
           title: "Update image to latest build"
           body: "This PR updates the Kubernetes manifest to use the latest image."
           labels: automated
+
