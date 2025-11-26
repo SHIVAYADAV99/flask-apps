@@ -58,15 +58,21 @@ jobs:
         with:
           ref: main
 
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Update Manifest Image
         run: |
           NEW_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}"
           echo "Updating image to: $NEW_IMAGE"
 
-          sed -i "s|image:.*|image: $NEW_IMAGE|g" mainfests/deployment.yaml
+          # make sure directory name is correct (manifests)
+          sed -i "s|image:.*|image: $NEW_IMAGE|g" manifests/deployment.yaml
 
           git checkout -b update-image-${{ github.run_id }}
-          git add mainfests/deployment.yaml
+          git add manifests/deployment.yaml
           git commit -m "Update image to $NEW_IMAGE"
 
       - name: Create Pull Request
@@ -76,4 +82,3 @@ jobs:
           title: "Update image to latest build"
           body: "This PR updates the Kubernetes manifest to use the latest image."
           labels: automated
-
