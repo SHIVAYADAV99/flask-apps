@@ -79,6 +79,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           branch: update-image-${{ github.run_id }}
+          base: main
           title: "Update image to latest build"
           body: "This PR updates the Kubernetes manifest to use the latest image."
           labels: automated
