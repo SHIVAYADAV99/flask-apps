@@ -1,0 +1,27 @@
+name: CI/CD - Prod Environment (main)
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  promote-prod:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract image from stage
+        id: getimg
+        run: |
+          IMAGE=$(grep "image:" manifests/stage/deployment.yaml | awk '{print $2}')
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Update prod manifest
+        run: |
+          sed -i "s|image:.*|image: ${{ steps.getimg.outputs.image }}|g" manifests/prod/deployment.yaml
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add manifests/prod/deployment.yaml
+          git commit -m "Promote to prod: ${{ steps.getimg.outputs.image }}" || true
+          git push origin main
