@@ -48,7 +48,7 @@ jobs:
       - name: Update dev manifest
         run: |
           NEW_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/flask-app:${{ needs.build-and-push.outputs.image_tag }}"
-          sed -i "s|image:.*|image: $NEW_IMAGE|g" manifests/dev/deployment.yaml
+          sed -i "s|image:.*|image: $NEW_IMAGE|g" mainfests/dev/deployment.yaml
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git add manifests/dev/deployment.yaml
