@@ -1,0 +1,30 @@
+name: CI/CD - Stage Environment
+
+on:
+  push:
+    branches: ["stage"]
+
+env:
+  IMAGE_NAME: flask-app
+
+jobs:
+  update-stage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract image from dev manifest
+        id: getimage
+        run: |
+          IMAGE=$(grep "image:" manifests/dev/deployment.yaml | awk '{print $2}')
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Promote to stage
+        run: |
+          sed -i "s|image:.*|image: ${{ steps.getimage.outputs.image }}|g" manifests/stage/deployment.yaml
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add manifests/stage/deployment.yaml
+          git commit -m "Promote to stage: ${{ steps.getimage.outputs.image }}" || true
+          git push origin stage
