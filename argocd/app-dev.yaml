@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_USERNAME/flask-apps.git
+    repoURL: https://github.com/shivayadav99/flask-apps.git
     targetRevision: dev
     path: manifests/dev
   destination:
