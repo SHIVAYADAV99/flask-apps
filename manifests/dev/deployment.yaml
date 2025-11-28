@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flask-app
-  namespace: flask-app
 spec:
   replicas: 1
   selector:
@@ -14,7 +13,7 @@ spec:
         app: flask-app
     spec:
       containers:
-        - name: flask-container
-          image: shivayadav99/flask-app:latest
+        - name: flask-app
+          image: shivayadav99/flask-app:b847ab4b684ce42cc9669dbbe2235f9af522f888
           ports:
             - containerPort: 8000
